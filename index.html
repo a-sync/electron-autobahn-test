@@ -1,0 +1,55 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>Electron-Autobahn Test</title>
+		<link rel="stylesheet" href="index.css">
+	</head>
+	<body>
+		<div class="container">
+			<header>
+				<h1>Electron-Autobahn Test</h1>
+			</header>
+			<section class="main">
+                <button onclick="publishRenderer()">publish to test.renderer.publish</button> 
+                <button onclick="callRenderer()">call test.renderer.call</button> 
+                <br>
+                <button onclick="publishMain()">publish to test.main.publish</button> 
+                <button onclick="callMain()">call test.main.call</button>
+                <textarea id="con" width="100%" readonly></textarea>
+			</section>
+			<footer></footer>
+		</div>
+		<script>
+        document.addEventListener('DOMContentLoaded', function(e){
+            Controller.init(window.remote.getGlobal('abSession'));
+        });
+
+        var Controller = {
+            session: null,
+
+            init: function (_session) {
+                Controller.session = _session;
+
+                //TODO: subscribe, register
+            },
+
+            function publishRenderer() {
+                alert('TODO test.renderer.publish');
+            }
+
+            function callRenderer() {
+                alert('TODO test.renderer.call');
+            }
+        }
+
+        var c = 0;
+        function publishMain() {
+            window.ipcRenderer.send('test.publish', ++c);
+        }
+        function callMain() {
+            window.ipcRenderer.send('test.call', ++c);
+        }
+		</script>
+	</body>
+</html>

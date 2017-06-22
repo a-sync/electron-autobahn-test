@@ -1,0 +1,35 @@
+{
+  "name": "electron-autobahn-test",
+  "productName": "App",
+  "version": "0.0.0",
+  "description": "",
+  "license": "MIT",
+  "repository": "a-sync/electron-autobahn-test",
+  "author": {
+    "name": "smith",
+    "email": "bill@microsoft.com",
+    "url": ""
+  },
+  "scripts": {
+    "test": "xo",
+    "start": "electron .",
+    "build": "electron-packager . --out=dist --asar --overwrite --all"
+  },
+  "dependencies": {
+    "autobahn": "^17.5.2",
+    "electron-debug": "^1.2.0",
+    "electron-unhandled": "^0.2.0"
+  },
+  "devDependencies": {
+    "devtron": "^1.4.0",
+    "electron-packager": "^8.7.1",
+    "electron": "^1.7.3",
+    "xo": "^0.18.2"
+  },
+  "xo": {
+    "envs": [
+      "node",
+      "browser"
+    ]
+  }
+}
