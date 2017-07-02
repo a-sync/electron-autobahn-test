@@ -14,13 +14,15 @@ function startApp() {
     console.log('startApp');
 
     connection = new autobahn.Connection({
-       url: 'ws://localhost:8080/ws',
-       realm: 'realm1'
+        url: 'ws://localhost:8080/ws',
+        realm: 'realm1'
     });
 
-    connection.onopen = function (session) {
+    connection.onopen = function (session, details) {
         console.log('CONNECTION opened');
+        global.abConnection = connection;
         global.abSession = session;
+        global.abSessionDetails = details;
 
         connected();
 
@@ -42,7 +44,7 @@ function createMainWindow() {
         height: 600,
         webPreferences: {
             nodeIntegration: false,
-            preload: `${__dirname}/preload.js`
+            preload: require('path').join(__dirname, 'preload.js')
         }
     });
 
@@ -93,11 +95,11 @@ function connected() {
 }
 
 function mainSubscribe (args, kwargs, details) {
-    console.log('mainSubscribe', args, kwargs, details);
+    console.log('mainSubscribe', args, JSON.stringify(kwargs, null, 2), details);
 }
 
 function mainRegister (args, kwargs, details) {
-    console.log('mainRegister', args, kwargs, details);
+    console.log('mainRegister', args, JSON.stringify(kwargs, null, 2), details);
 
     let re = {
         id: "return main.deepObj",
@@ -110,7 +112,7 @@ function mainRegister (args, kwargs, details) {
 function mainPublish (v) {
     // PUBLISH an event
     //
-    global.abSession.publish('test.main.publish', null, getDeepObj(v)).then(
+    global.abSession.publish('test.main.publish', null, getDeepObj(v), {acknowledge: true}).then(
         function (res) {
             console.log("published to test.main.publish");
         },
@@ -125,7 +127,7 @@ function mainCall (v) {
     //
     global.abSession.call('test.main.call', null, getDeepObj(v)).then(
         function (res) {
-            console.log("test.main.call called with result: ", res);
+            console.log("test.main.call called with result: ", JSON.stringify(res, null, 2));
         },
         function (err) {
             console.log("call of test.main.call failed: ", err);
@@ -133,7 +135,8 @@ function mainCall (v) {
     );
 }
 
-function getDeepObj(deepValue) {
+function getDeepObj(id) {
+
     function getChilds(v) {
         return {
             child1: {
@@ -149,37 +152,33 @@ function getDeepObj(deepValue) {
             }
         };
     }
-    return [
-        deepValue,
-        getChilds(0),
-        {
-            more: [
-                getChilds(1),
+    return {
+        id: id,
+        more: [
+            getChilds(1),
+            [
+                getChilds(2),
                 [
-                    getChilds(2),
-                    [
-                        {
-                            deepKey:"deepValue",
-                            deepArr:
-                            [
-                                4,
-                                3,
-                                "deepArrValue",
-                                {
-                                    deepChilds: getChilds(deepValue),
-                                    val: ["val", "ue"]
-                                }
-                            ]
-                        },
-                        getChilds(3)
-                    ],
-                    2,
-                    1
-                ]
-            ],
-            less: 0
-        }
-    ];
+                    {
+                        deepKey: "deepValue",
+                        deepArr: [
+                            4,
+                            3,
+                            "deepArrValue",
+                            {
+                                deepChilds: getChilds(id),
+                                val: ["val", "ue"]
+                            }
+                        ]
+                    },
+                    getChilds(3)
+                ],
+                2,
+                1
+            ]
+        ],
+        less: 0
+    };
 }
 
 ipcMain.on('test.main.publish', (event, v) => {
