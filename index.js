@@ -150,6 +150,7 @@ function getDeepObj(deepValue) {
         };
     }
     return [
+        deepValue,
         getChilds(0),
         {
             more: [
