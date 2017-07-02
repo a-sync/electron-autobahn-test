@@ -11,13 +11,18 @@
 				<h1>Electron-Autobahn Test</h1>
 			</header>
 			<section class="main">
-                <button onclick="publishRenderer()">publish to test.renderer.publish</button> 
-                <button onclick="callRenderer()">call test.renderer.call</button> 
-                <br>
-                <button onclick="publishMain()">publish to test.main.publish</button> 
+                <h2>Test main process</h2>
+                <button onclick="publishMain()">publish to test.main.publish</button>
                 <button onclick="callMain()">call test.main.call</button>
-                <textarea id="con" width="100%" readonly></textarea>
-			</section>
+
+                <h2>Test renderer process</h2>
+                <button onclick="publishRenderer()">publish to test.renderer.publish</button>
+                <button onclick="callRenderer()">call test.renderer.call</button>
+
+                <h2>Test service</h2>
+                <button onclick="doServicePublish()">service.do.publish</button>
+                <button onclick="doServiceCall()">service.do.call</button>
+            </section>
 			<footer></footer>
 		</div>
 		<script>
@@ -31,25 +36,141 @@
             init: function (_session) {
                 Controller.session = _session;
 
-                //TODO: subscribe, register
+                Controller.connected();
             },
 
-            function publishRenderer() {
-                alert('TODO test.renderer.publish');
+            connected: function () {
+                // SUBSCRIBE to a topic and receive events
+                //
+                Controller.session.subscribe('test.renderer.subscribe', Controller.rendererSubscribe).then(
+                    function (sub) {
+                        console.log("subscribed to topic test.renderer.subscribe");
+                    },
+                    function (err) {
+                        console.log("failed to subscribe: ", err);
+                    }
+                );
+
+                // REGISTER a procedure for remote calling
+                //
+                Controller.session.register('test.renderer.register', Controller.rendererRegister).then(
+                    function (reg) {
+                        console.log("procedure test.renderer.register registered");
+                    },
+                    function (err) {
+                        console.log("failed to register procedure: ", err);
+                    }
+                );
+            },
+
+            rendererSubscribe: function (args, kwargs, details) {
+                console.log('rendererSubscribe', args, kwargs, details);
+            },
+
+            rendererRegister: function (args, kwargs, details) {
+                console.log('rendererRegister', args, kwargs, details);
+
+                let re = {
+                    id: "return renderer.deepObj",
+                    deepObj: getDeepObj('rendererRegister')
+                };
+
+                return re;
             }
 
-            function callRenderer() {
-                alert('TODO test.renderer.call');
-            }
-        }
+        };
 
         var c = 0;
+        function publishRenderer() {
+            // PUBLISH an event
+            //
+            Controller.session.publish('test.renderer.publish', null, getDeepObj(++c)).then(
+                function (res) {
+                    console.log("published to test.renderer.publish");
+                },
+                function (err) {
+                    console.log("failed to publish to test.renderer.publish", err);
+                }
+            );
+        }
+
+        function callRenderer() {
+            // CALL a remote procedure
+            //
+            Controller.session.call('test.renderer.call', null, getDeepObj(++c)).then(
+                    function (res) {
+                        console.log("test.renderer.call called with result: ", res);
+                    },
+                    function (err) {
+                        console.log('call of test.renderer.call failed: ', err);
+                    }
+            );
+        }
+
         function publishMain() {
-            window.ipcRenderer.send('test.publish', ++c);
+            window.ipcRenderer.send('test.main.publish', ++c);
         }
+
         function callMain() {
-            window.ipcRenderer.send('test.call', ++c);
+            window.ipcRenderer.send('test.main.call', ++c);
         }
-		</script>
+
+        function doServicePublish () {
+            Controller.session.publish('service.do.publish');
+        }
+
+        function doServiceCall () {
+            Controller.session.publish('service.do.call');
+        }
+
+        function getDeepObj(deepValue) {
+            function getChilds(v) {
+                return {
+                    child1: {
+                        id: "child1" + v,
+                        childs: {
+                            child2: {
+                                id: "child2" + v,
+                                childs: {
+                                    child3: v
+                                }
+                            }
+                        }
+                    }
+                };
+            }
+            return [
+                getChilds(0),
+                {
+                    more: [
+                        getChilds(1),
+                        [
+                            getChilds(2),
+                            [
+                                {
+                                    deepKey:"deepValue",
+                                    deepArr:
+                                            [
+                                                4,
+                                                3,
+                                                "deepArrValue",
+                                                {
+                                                    deepChilds: getChilds(deepValue),
+                                                    val: ["val","ue"]
+                                                }
+                                            ]
+                                },
+                                getChilds(3)
+                            ],
+                            2,
+                            1
+                        ]
+                    ],
+                    less: 0
+                }
+            ];
+        }
+
+        </script>
 	</body>
 </html>

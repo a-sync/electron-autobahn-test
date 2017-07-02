@@ -1,7 +1,6 @@
 'use strict';
 
-const electron = require('electron');
-const {app, ipcMain} = require('electron');
+const {app, ipcMain, BrowserWindow} = require('electron');
 
 global.AUTOBAHN_DEBUG = false;
 const autobahn = require('autobahn');
@@ -10,64 +9,105 @@ require('electron-debug')();
 require('electron-unhandled')();
 
 let connection;
-function run() {
+function startApp() {
+    console.log('startApp');
+
     connection = new autobahn.Connection({
        url: 'ws://localhost:8080/ws',
-       realm: 'realm1'}
-    );
+       realm: 'realm1'
+    });
 
-    connection.onopen = function (_session) {
-        connected(_session);
+    connection.onopen = function (session) {
+        console.log('CONNECTION opened');
+        global.abSession = session;
+
+        connected();
+
+        if(!mainWindow) createMainWindow();
     };
 
-    mainWindow = createMainWindow();
-    mainWindow.on('show', e => {
-        connection.open();
+    connection.onclose = function (reason, details) {
+        console.log('CONNECTION closed', reason, details);
+    };
+
+    connection.open();
+}
+
+let mainWindow;
+function createMainWindow() {
+    console.log('createMainWindow');
+
+    mainWindow = new BrowserWindow({
+        width: 400,
+        height: 400,
+        webPreferences: {
+            nodeIntegration: false,
+            preload: `${__dirname}/preload.js`
+        }
+    });
+
+    let url = require('url').format({
+        protocol: 'file',
+        slashes: true,
+        pathname: require('path').join(__dirname, 'index.html')
+    });
+
+    mainWindow.loadURL(url);
+    mainWindow.on('closed', onClosed);
+    mainWindow.on('show', () => {
+        console.log('WINDOW show');
+        mainWindow.webContents.openDevTools();
     });
 }
 
-function connected(session) {
-    global.abSession = session;
+function onClosed() {
+    console.log('WINDOW closed');
+    mainWindow = null;
 
+    let err = connection.close();
+    if (err) console.log('error while closing connection', err);
+}
+
+function connected() {
     // SUBSCRIBE to a topic and receive events
     //
-    session.subscribe('test.main.subscribe', mainSubscribe).then(
-      function (sub) {
-         console.log("subscribed to topic 'test.main.subscribe'");
-      },
-      function (err) {
-         console.log("failed to subscribe: " + err);
-      }
+    global.abSession.subscribe('test.main.subscribe', mainSubscribe).then(
+        function (sub) {
+            console.log("subscribed to topic test.main.subscribe");
+        },
+        function (err) {
+            console.log("failed to subscribe: ", err);
+        }
     );
 
     // REGISTER a procedure for remote calling
     //
-    session.register('test.main.register', mainRegister).then(
-      function (reg) {
-         console.log("procedure test.main.register registered");
-      },
-      function (err) {
-         console.log("failed to register procedure: " + err);
-      }
+    global.abSession.register('test.main.register', mainRegister).then(
+        function (reg) {
+            console.log("procedure test.main.register registered");
+        },
+        function (err) {
+            console.log("failed to register procedure: ", err);
+        }
     );
 }
 
 function mainSubscribe (args, kwargs, details) {
-    console.info('mainSubscribe', args, kwargs, details);
+    console.log('mainSubscribe', args, kwargs, details);
 }
 
 function mainRegister (args, kwargs, details) {
-    console.info('mainRegister', args, kwargs, details);
+    console.log('mainRegister', args, kwargs, details);
 
     let re = {
-        id: "return deepObj",
-        deepObj: getDeepObj()
+        id: "return main.deepObj",
+        deepObj: getDeepObj('mainRegister')
     };
 
     return re;
 }
 
-function getDeepObj() {
+function getDeepObj(deepValue) {
     function getChilds(v) {
         return {
             child1: {
@@ -99,7 +139,7 @@ function getDeepObj() {
                                 3,
                                 "deepArrValue",
                                 {
-                                    deepChilds: getChilds("test"),
+                                    deepChilds: getChilds(deepValue),
                                     val: ["val","ue"]
                                 }
                             ]
@@ -115,59 +155,46 @@ function getDeepObj() {
     ];
 }
 
-ipcMain.on('test.publish', (event, v) => {
+ipcMain.on('test.main.publish', (event, v) => {
     // PUBLISH an event
     //
-    global.abSession.publish('test.main.publish', null, getDeepObj(v));
-    console.log("published to 'test.main.publish' with v " + v);
+    global.abSession.publish('test.main.publish', null, getDeepObj(v)).then(
+        function (res) {
+            console.log("published to test.main.publish");
+        },
+        function (err) {
+            console.log("failed to publish to test.main.publish", err);
+        }
+    );
 });
 
-ipcMain.on('test.call', (event, v) => {
-      // CALL a remote procedure
-      //
-      session.call('test.main.call', null, getDeepObj(v)).then(
-         function (res) {
-            console.log("test.main.call called with result: " + res);
-         },
-         function (err) {
-            console.log('call of test.main.call failed: ' + err);
-         }
-      );
+ipcMain.on('test.main.call', (event, v) => {
+    // CALL a remote procedure
+    //
+    global.abSession.call('test.main.call', null, getDeepObj(v)).then(
+        function (res) {
+            console.log("test.main.call called with result: ", res);
+        },
+        function (err) {
+            console.log("call of test.main.call failed: ", err);
+        }
+    );
 });
-
-let mainWindow;
-function onClosed() {
-	mainWindow = null;
-}
-
-function createMainWindow() {
-	const win = new electron.BrowserWindow({
-		width: 800,
-		height: 600,
-		webPreferences: {
-            nodeIntegration: false,
-            preload: `${__dirname}/preload.js`
-		}
-	});
-
-	win.loadURL(`file://${__dirname}/index.html`);
-	win.on('closed', onClosed);
-
-	return win;
-}
 
 app.on('window-all-closed', () => {
 	if (process.platform !== 'darwin') {
+        console.log('APP window-all-closed');
+
 		app.quit();
 	}
 });
 
 app.on('activate', () => {
 	if (!mainWindow) {
-		run();
+		startApp();
 	}
 });
 
 app.on('ready', () => {
-	run();
+	startApp();
 });
