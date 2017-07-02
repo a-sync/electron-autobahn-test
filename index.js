@@ -9,6 +9,7 @@ require('electron-debug')();
 require('electron-unhandled')();
 
 let connection;
+let mainWindow;
 function startApp() {
     console.log('startApp');
 
@@ -23,7 +24,7 @@ function startApp() {
 
         connected();
 
-        if(!mainWindow) createMainWindow();
+        if (!mainWindow) createMainWindow();
     };
 
     connection.onclose = function (reason, details) {
@@ -33,7 +34,6 @@ function startApp() {
     connection.open();
 }
 
-let mainWindow;
 function createMainWindow() {
     console.log('createMainWindow');
 
@@ -107,6 +107,32 @@ function mainRegister (args, kwargs, details) {
     return re;
 }
 
+function mainPublish (v) {
+    // PUBLISH an event
+    //
+    global.abSession.publish('test.main.publish', null, getDeepObj(v)).then(
+        function (res) {
+            console.log("published to test.main.publish");
+        },
+        function (err) {
+            console.log("failed to publish to test.main.publish", err);
+        }
+    );
+}
+
+function mainCall (v) {
+    // CALL a remote procedure
+    //
+    global.abSession.call('test.main.call', null, getDeepObj(v)).then(
+        function (res) {
+            console.log("test.main.call called with result: ", res);
+        },
+        function (err) {
+            console.log("call of test.main.call failed: ", err);
+        }
+    );
+}
+
 function getDeepObj(deepValue) {
     function getChilds(v) {
         return {
@@ -140,7 +166,7 @@ function getDeepObj(deepValue) {
                                 "deepArrValue",
                                 {
                                     deepChilds: getChilds(deepValue),
-                                    val: ["val","ue"]
+                                    val: ["val", "ue"]
                                 }
                             ]
                         },
@@ -156,29 +182,11 @@ function getDeepObj(deepValue) {
 }
 
 ipcMain.on('test.main.publish', (event, v) => {
-    // PUBLISH an event
-    //
-    global.abSession.publish('test.main.publish', null, getDeepObj(v)).then(
-        function (res) {
-            console.log("published to test.main.publish");
-        },
-        function (err) {
-            console.log("failed to publish to test.main.publish", err);
-        }
-    );
+    mainPublish(v);
 });
 
 ipcMain.on('test.main.call', (event, v) => {
-    // CALL a remote procedure
-    //
-    global.abSession.call('test.main.call', null, getDeepObj(v)).then(
-        function (res) {
-            console.log("test.main.call called with result: ", res);
-        },
-        function (err) {
-            console.log("call of test.main.call failed: ", err);
-        }
-    );
+    mainCall(v);
 });
 
 app.on('window-all-closed', () => {

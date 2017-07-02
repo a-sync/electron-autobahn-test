@@ -23,7 +23,7 @@
   "devDependencies": {
     "devtron": "^1.4.0",
     "electron-packager": "^8.7.2",
-    "electron": "^1.7.3",
+    "electron": "^1.7.4",
     "xo": "^0.18.2"
   },
   "xo": {

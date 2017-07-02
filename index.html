@@ -12,12 +12,12 @@
 			</header>
 			<section class="main">
                 <h2>Test main process</h2>
-                <button onclick="publishMain()">publish to test.main.publish</button>
-                <button onclick="callMain()">call test.main.call</button>
+                <button onclick="mainPublish()">publish to test.main.publish</button>
+                <button onclick="mainCall()">call test.main.call</button>
 
                 <h2>Test renderer process</h2>
-                <button onclick="publishRenderer()">publish to test.renderer.publish</button>
-                <button onclick="callRenderer()">call test.renderer.call</button>
+                <button onclick="rendererPublish()">publish to test.renderer.publish</button>
+                <button onclick="rendererCall()">call test.renderer.call</button>
 
                 <h2>Test service</h2>
                 <button onclick="doServicePublish()">service.do.publish</button>
@@ -33,8 +33,8 @@
         var Controller = {
             session: null,
 
-            init: function (_session) {
-                Controller.session = _session;
+            init: function (session) {
+                Controller.session = session;
 
                 Controller.connected();
             },
@@ -42,7 +42,7 @@
             connected: function () {
                 // SUBSCRIBE to a topic and receive events
                 //
-                Controller.session.subscribe('test.renderer.subscribe', Controller.rendererSubscribe).then(
+                Controller.session.subscribe('test.renderer.subscribe', rendererSubscribe).then(
                     function (sub) {
                         console.log("subscribed to topic test.renderer.subscribe");
                     },
@@ -53,7 +53,7 @@
 
                 // REGISTER a procedure for remote calling
                 //
-                Controller.session.register('test.renderer.register', Controller.rendererRegister).then(
+                Controller.session.register('test.renderer.register', rendererRegister).then(
                     function (reg) {
                         console.log("procedure test.renderer.register registered");
                     },
@@ -61,27 +61,26 @@
                         console.log("failed to register procedure: ", err);
                     }
                 );
-            },
-
-            rendererSubscribe: function (args, kwargs, details) {
-                console.log('rendererSubscribe', args, kwargs, details);
-            },
-
-            rendererRegister: function (args, kwargs, details) {
-                console.log('rendererRegister', args, kwargs, details);
-
-                let re = {
-                    id: "return renderer.deepObj",
-                    deepObj: getDeepObj('rendererRegister')
-                };
-
-                return re;
             }
-
         };
 
-        var c = 0;
-        function publishRenderer() {
+        function rendererSubscribe (args, kwargs, details) {
+            console.log('rendererSubscribe', args, kwargs, details);
+        }
+
+        function rendererRegister (args, kwargs, details) {
+            console.log('rendererRegister', args, kwargs, details);
+
+            let re = {
+                id: "return renderer.deepObj",
+                deepObj: getDeepObj('rendererRegister')
+            };
+
+            return re;
+        }
+
+        var c = 100;
+        function rendererPublish() {
             // PUBLISH an event
             //
             Controller.session.publish('test.renderer.publish', null, getDeepObj(++c)).then(
@@ -94,24 +93,24 @@
             );
         }
 
-        function callRenderer() {
+        function rendererCall() {
             // CALL a remote procedure
             //
             Controller.session.call('test.renderer.call', null, getDeepObj(++c)).then(
-                    function (res) {
-                        console.log("test.renderer.call called with result: ", res);
-                    },
-                    function (err) {
-                        console.log('call of test.renderer.call failed: ', err);
-                    }
+                function (res) {
+                    console.log("test.renderer.call called with result: ", res);
+                },
+                function (err) {
+                    console.log('call of test.renderer.call failed: ', err);
+                }
             );
         }
 
-        function publishMain() {
+        function mainPublish() {
             window.ipcRenderer.send('test.main.publish', ++c);
         }
 
-        function callMain() {
+        function mainCall() {
             window.ipcRenderer.send('test.main.call', ++c);
         }
 
