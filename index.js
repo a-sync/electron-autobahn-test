@@ -38,26 +38,26 @@ function createMainWindow() {
     console.log('createMainWindow');
 
     mainWindow = new BrowserWindow({
-        width: 400,
-        height: 400,
+        width: 800,
+        height: 600,
         webPreferences: {
             nodeIntegration: false,
             preload: `${__dirname}/preload.js`
         }
     });
 
+    mainWindow.webContents.on('did-finish-load', () => {
+        console.log('webContents did-finish-load');
+        mainWindow.webContents.openDevTools();
+    });
+    mainWindow.on('closed', onClosed);
+
     let url = require('url').format({
         protocol: 'file',
         slashes: true,
         pathname: require('path').join(__dirname, 'index.html')
     });
-
     mainWindow.loadURL(url);
-    mainWindow.on('closed', onClosed);
-    mainWindow.on('show', () => {
-        console.log('WINDOW show');
-        mainWindow.webContents.openDevTools();
-    });
 }
 
 function onClosed() {
